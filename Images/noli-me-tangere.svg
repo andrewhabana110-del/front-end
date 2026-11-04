@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="1120" viewBox="0 0 800 1120" role="img" aria-labelledby="title description">
+  <title id="title">Noli Me Tangere</title>
+  <desc id="description">An original illustrated cover inspired by the landscapes and themes of Jose Rizal's novel.</desc>
+  <defs>
+    <linearGradient id="sky" x2="0" y2="1">
+      <stop offset="0" stop-color="#172b3b"/>
+      <stop offset=".62" stop-color="#8f5848"/>
+      <stop offset="1" stop-color="#d89a5c"/>
+    </linearGradient>
+    <linearGradient id="ground" x2="0" y2="1">
+      <stop stop-color="#566449"/>
+      <stop offset="1" stop-color="#202e2d"/>
+    </linearGradient>
+    <pattern id="grain" width="12" height="12" patternUnits="userSpaceOnUse">
+      <circle cx="2" cy="3" r="1" fill="#f3d9a8" opacity=".14"/>
+      <circle cx="9" cy="9" r=".8" fill="#1d2527" opacity=".16"/>
+    </pattern>
+  </defs>
+  <rect width="800" height="1120" fill="#eee0bd"/>
+  <rect x="34" y="34" width="732" height="1052" fill="url(#sky)"/>
+  <circle cx="605" cy="290" r="76" fill="#f2d69b" opacity=".9"/>
+  <path d="M35 585 170 410l105 113 156-211 173 229 102-128 60 74v240H35Z" fill="#394b4b"/>
+  <path d="M35 648 186 516l125 123 161-182 134 165 118-116 42 39v202H35Z" fill="#263d3d"/>
+  <path d="M35 682q155-80 290 0t441-10v210H35Z" fill="url(#ground)"/>
+  <path d="M35 770q164-81 294 0t437-34v68q-275 95-441 24T35 866Z" fill="#b8794c" opacity=".75"/>
+  <g fill="#203132">
+    <path d="M126 668h20v-92h54v92h18v-62h32v62h18v-111h45v111h17v-79h36v79h18v-103h46v103h18v-67h34v67h18v-95h47v95h18v-58h34v58h18v-86h43v86h18v-51h27v51h20v64H126Z"/>
+    <path d="M412 573V458h34v115Zm-18-108 34-48 34 48Z"/>
+    <path d="M425 456h8v-42h-8z"/>
+  </g>
+  <g fill="none" stroke="#f3d9a8" opacity=".65">
+    <path d="M77 921h646M100 934h600"/>
+    <path d="M83 94h634v932H83z" stroke-width="2"/>
+  </g>
+  <rect x="34" y="34" width="732" height="1052" fill="url(#grain)" pointer-events="none"/>
+  <text x="400" y="188" text-anchor="middle" fill="#f6e8c7" font-family="Georgia,serif" font-size="27" letter-spacing="8">A NOVEL BY JOSE RIZAL</text>
+  <text x="400" y="337" text-anchor="middle" fill="#fff0d0" font-family="Georgia,serif" font-size="76" font-weight="bold" letter-spacing="4">NOLI ME</text>
+  <text x="400" y="424" text-anchor="middle" fill="#fff0d0" font-family="Georgia,serif" font-size="76" font-weight="bold" letter-spacing="4">TANGERE</text>
+  <path d="M250 456h300" stroke="#f2d69b" stroke-width="2" opacity=".8"/>
+  <text x="400" y="976" text-anchor="middle" fill="#f6e8c7" font-family="Georgia,serif" font-size="22" letter-spacing="5">THE PHILIPPINES · 1887</text>
+</svg>

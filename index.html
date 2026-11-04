@@ -1,0 +1,992 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Penetrative Library</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+
+    <div class="bg-orb orb-1"></div>
+    <div class="bg-orb orb-2"></div>
+    <div class="bg-orb orb-3"></div>
+
+    <section id="loginPage" class="login-page">
+        <div class="login-card">
+            <div class="login-logo-wrap">
+                <img src="Images/penetrative-logo.png" alt="Penetrative Library" class="login-logo"
+                     onerror="this.style.display='none'; document.getElementById('loginDragonFallback').classList.remove('hidden')">
+                <div id="loginDragonFallback" class="dragon-icon hidden">🐉</div>
+            </div>
+            <h1 id="authTitle">Library Login</h1>
+            <p id="authSubtitle">Sign in to manage your library</p>
+
+            <form id="loginForm">
+                <label for="username">Email</label>
+                <input type="email" id="username" placeholder="Enter email" required autocomplete="username">
+
+                <label for="password">Password</label>
+                <input type="password" id="password" placeholder="Enter password" required autocomplete="current-password">
+
+                <p id="loginError" class="error-message"></p>
+
+                <button type="submit" class="primary-btn">Log In</button>
+                <button type="button" id="signupBtn" class="secondary-btn">Create Account</button>
+                <button type="button" class="text-btn forgot-link" onclick="showAuthForm('forgot')">Forgot password?</button>
+            </form>
+
+            <form id="forgotForm" class="hidden">
+                <div id="forgotStep1">
+                    <label for="forgotEmail">Email</label>
+                    <input type="email" id="forgotEmail" placeholder="Enter your email" autocomplete="email" required>
+                    <button type="button" class="primary-btn" onclick="sendPasswordResetLink()">Send password reset link</button>
+                </div>
+                <p id="forgotError" class="error-message"></p>
+                <button type="button" class="secondary-btn" onclick="showAuthForm('login')">Back to Login</button>
+            </form>
+
+            <form id="passwordResetForm" class="hidden">
+                <label for="resetNewPassword">New Password</label>
+                <input type="password" id="resetNewPassword" minlength="8" required autocomplete="new-password">
+                <label for="resetConfirmPassword">Confirm New Password</label>
+                <input type="password" id="resetConfirmPassword" minlength="8" required autocomplete="new-password">
+                <p id="passwordResetError" class="error-message"></p>
+                <button type="submit" class="primary-btn">Update Password</button>
+            </form>
+
+            <form id="signupForm" class="hidden">
+                <div class="signup-type-group">
+                    <label class="signup-type-option active">
+                        <input type="radio" name="signupType" value="regular" checked>
+                        <span class="signup-type-icon">📖</span>
+                        <strong>Regular Account</strong>
+                        <small>Borrow, buy &amp; rate books</small>
+                    </label>
+                    <label class="signup-type-option">
+                        <input type="radio" name="signupType" value="author">
+                        <span class="signup-type-icon">✍️</span>
+                        <strong>Apply as Author</strong>
+                        <small>Upload your own books</small>
+                    </label>
+                </div>
+
+                <label for="signupUsername">Username</label>
+                <input type="text" id="signupUsername" placeholder="Choose username" pattern="[^0-9]+" title="Username cannot contain numbers." required>
+
+                <label for="signupEmail">Email</label>
+                <input type="email" id="signupEmail" placeholder="you@example.com" required autocomplete="email">
+
+                <div id="authorSignupFields" class="hidden">
+                    <label for="signupPenName">Pen Name (shown on your books)</label>
+                    <input type="text" id="signupPenName" placeholder="Your author name" maxlength="40">
+
+                    <label for="signupAuthorBio">About You (short bio)</label>
+                    <textarea id="signupAuthorBio" rows="3" maxlength="300" placeholder="Tell readers about your writing..."></textarea>
+
+                    <p class="auth-note">An admin reviews every author application. You can log in right away as a reader, and the <strong>My Books</strong> upload page unlocks once you're approved.</p>
+                </div>
+
+                <label for="signupPassword">Password (min 8 characters)</label>
+                <input type="password" id="signupPassword" placeholder="Minimum 8 characters" minlength="8" pattern="\S+" title="Password cannot contain spaces." required>
+
+                <label for="signupPasswordConfirm">Confirm Password</label>
+                <input type="password" id="signupPasswordConfirm" placeholder="Re-enter password" minlength="8" pattern="\S+" title="Password cannot contain spaces." required>
+
+                <p id="signupError" class="error-message"></p>
+
+                <button type="submit" id="signupSubmitBtn" class="primary-btn">Create Account</button>
+                <button type="button" id="backToLoginBtn" class="secondary-btn">Back to Login</button>
+            </form>
+        </div>
+    </section>
+
+    <div id="appShell" class="hidden">
+
+        <header class="topbar">
+            <div style="display:flex; align-items:center; gap:12px;">
+                <button id="sidePanelToggle" class="side-toggle" title="Menu">☰</button>
+
+                <div class="logo-area" id="logoClick" title="Click for Help">
+                    <img src="Images/logo.jpg" alt="Logo" class="logo-img" onerror="this.style.display='none'">
+                    <h1 class="logo-title">PENETRATIVE LIBRARY</h1>
+                </div>
+            </div>
+
+            <div class="topbar-right">
+                <div class="notification-wrapper">
+                    <button id="notifBell" class="icon-btn" title="Notifications">
+                        🔔
+                        <span id="notifBadge" class="notif-badge hidden">0</span>
+                    </button>
+
+                    <div id="notifDropdown" class="notif-dropdown hidden">
+                        <div class="notif-header">
+                            <h3>Notifications</h3>
+                            <button id="markReadBtn" class="text-btn">Mark all read</button>
+                            <button class="text-btn" onclick="clearAllNotifications()">Clear all</button>
+                        </div>
+
+                        <div id="notifList" class="notif-list">
+                            <p class="empty">No notifications</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <div id="sidePanel" class="side-panel">
+            <div class="side-panel-header">
+                <span>🐉 Menu</span>
+                <button id="sidePanelClose" class="side-close">×</button>
+            </div>
+
+            <div class="side-panel-body">
+                <div class="side-user">
+                    <div class="side-user-avatar-row" onclick="openAvatarModal()" title="Change Avatar">
+                        <div id="sideUserAvatar" class="mini-avatar">👤</div>
+                        <div>
+                            <p>Welcome,</p>
+                            <strong id="userDisplayName">admin</strong>
+                        </div>
+                    </div>
+                    <span id="roleBadge" class="role-badge"></span>
+                </div>
+
+                <nav class="side-nav">
+                    <button class="side-nav-item admin-only hidden" data-page="dashboard">📊 Dashboard</button>
+                    <button class="side-nav-item" data-page="books">📚 Books</button>
+                    <button class="side-nav-item" data-page="authors">✍️ Authors</button>
+                    <button class="side-nav-item" data-page="borrow">🔄 Borrow</button>
+                    <button class="side-nav-item" data-page="cart">🛒 Cart</button>
+                    <button class="side-nav-item" data-page="search">🔍 Search</button>
+                    <button class="side-nav-item author-only hidden" data-page="myBooks">📤 My Books</button>
+                    <button class="side-nav-item" data-page="messages">💬 Messages <span id="messagesNavBadge" class="nav-badge hidden">0</span></button>
+                    <button class="side-nav-item" data-page="techSupport">🛠️ Tech Support</button>
+                    <button class="side-nav-item" data-page="profile">👤 Profile</button>
+                    <button class="side-nav-item" data-page="rewards">🏅 Rewards</button>
+                    <button class="side-nav-item admin-only hidden" data-page="support">💬 Support Inbox <span id="supportNavBadge" class="nav-badge hidden">0</span></button>
+                    <button class="side-nav-item admin-only hidden" data-page="admin">🛠️ Admin</button>
+                </nav>
+
+                <div class="side-controls">
+                    <button id="sideSettingsBtn" class="side-btn">
+                        <span>⚙️</span>
+                        <span>Settings</span>
+                    </button>
+                    <button id="logoutBtn" class="side-btn danger">Log Out</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="sideOverlay" class="side-overlay hidden"></div>
+
+        <main class="main-content">
+            <div class="page-heading">
+                <h2 id="pageTitle">Books</h2>
+                <p id="pageSubtitle">Catalog & inventory</p>
+            </div>
+
+            <section id="dashboard" class="page admin-only hidden">
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <p>Total Titles</p>
+                        <h3 id="totalBooks">0</h3>
+                    </div>
+
+                    <div class="stat-card">
+                        <p>Total Copies</p>
+                        <h3 id="totalCopies">0</h3>
+                    </div>
+
+                    <div class="stat-card">
+                        <p>Available</p>
+                        <h3 id="availableCount">0</h3>
+                    </div>
+
+                    <div class="stat-card">
+                        <p>My Borrowed</p>
+                        <h3 id="myBorrowed">0</h3>
+                    </div>
+
+                    <div class="stat-card">
+                        <p>Overdue</p>
+                        <h3 id="overdueCount">0</h3>
+                    </div>
+
+                    <div class="stat-card">
+                        <p>Today Sales</p>
+                        <h3 id="todaySales">₱0</h3>
+                    </div>
+                </div>
+
+                <div class="panel">
+                    <h3>✨ New Arrivals</h3>
+                    <div class="book-cards" id="newArrivals"></div>
+                </div>
+
+                <div class="panel">
+                    <h3>🔥 Popular</h3>
+                    <div class="book-cards" id="popularBooks"></div>
+                </div>
+
+                <div class="panel">
+                    <h3>👁 Recently Viewed</h3>
+                    <div class="book-cards" id="recentlyViewed"></div>
+                </div>
+            </section>
+
+            <section id="books" class="page active-page">
+                <div class="panel">
+                    <div class="panel-heading">
+                        <div>
+                            <h3>📚 Book Inventory</h3>
+                            <p style="font-size:13px; margin-top:4px;">Browse, borrow, and manage the catalog</p>
+                        </div>
+
+                        <div class="button-group">
+                            <button id="deleteBookButton" class="danger-btn admin-only hidden">Delete</button>
+                        </div>
+                    </div>
+
+                    <div class="filter-bar">
+                        <input
+                            type="search"
+                            id="booksSearch"
+                            class="search-input"
+                            placeholder="Search title, author, ID..."
+                        >
+
+                        <select id="filterAvailability" class="filter-select">
+                            <option value="">All Statuses</option>
+                            <option value="Available">Available</option>
+                            <option value="Borrowed">Borrowed</option>
+                            <option value="Regular">Regular Books</option>
+                            <option value="Premium">⭐ Premium Books</option>
+                        </select>
+
+                        <select id="filterCategory" class="filter-select">
+                            <option value="">Category</option>
+                        </select>
+
+                        <select id="sortBooks" class="filter-select">
+                            <option value="title">Sort: Title</option>
+                            <option value="author">Sort: Author</option>
+                            <option value="year">Sort: Year</option>
+                            <option value="rating">Sort: Rating</option>
+                        </select>
+                    </div>
+
+                    <div id="bookGrid" class="inventory-grid"></div>
+                </div>
+            </section>
+
+            <section id="authors" class="page">
+                <div class="panel">
+                    <h3>Author Directory</h3>
+                    <div id="authorList" class="author-grid"></div>
+                </div>
+            </section>
+
+            <section id="borrow" class="page">
+                <div class="panel">
+                    <h3>My Borrowed Books (max 3 • 14 days • ₱10 borrow fee)</h3>
+
+                    <div class="table-wrapper">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Book</th>
+                                    <th>Borrowed</th>
+                                    <th>Due</th>
+                                    <th>Fee</th>
+                                    <th>Status</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="myBorrowsTable"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="panel">
+                    <h3>History</h3>
+
+                    <div class="table-wrapper">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Book</th>
+                                    <th>Borrowed</th>
+                                    <th>Returned</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="historyTable"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <section id="cart" class="page">
+                <div class="panel">
+                    <div class="panel-heading">
+                        <h3>Shopping Cart</h3>
+                        <button id="checkoutButton" class="primary-btn">Checkout</button>
+                    </div>
+
+                    <div class="table-wrapper">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Title</th>
+                                    <th>Price</th>
+                                    <th>Qty</th>
+                                    <th>Subtotal</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="cartTable"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <section id="search" class="page">
+                <div class="panel">
+                    <h3>Advanced Search</h3>
+
+                    <div class="filter-bar">
+                        <input
+                            type="search"
+                            id="globalSearch"
+                            class="search-input"
+                            placeholder="Search keywords..."
+                        >
+
+                        <select id="searchCategory" class="filter-select">
+                            <option value="">Category</option>
+                        </select>
+
+                        <select id="searchYear" class="filter-select">
+                            <option value="">Year</option>
+                        </select>
+
+                        <select id="searchAvail" class="filter-select">
+                            <option value="">Any Status</option>
+                            <option value="Available">Available</option>
+                        </select>
+                    </div>
+
+                    <div class="table-wrapper">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Book</th>
+                                    <th>Author</th>
+                                    <th>Category</th>
+                                    <th>Year</th>
+                                    <th>Status</th>
+                                    <th>Price</th>
+                                </tr>
+                            </thead>
+                            <tbody id="searchResults"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <section id="profile" class="page">
+                <div id="profileHeroContainer" class="profile-hero panel">
+                    <div class="profile-avatar" id="profileAvatar" onclick="openAvatarModal()" title="Change Profile Picture">👤</div>
+
+                    <div class="profile-identity">
+                        <p class="eyebrow">YOUR LIBRARY ACCOUNT</p>
+                        <h3 id="profileHeroName">Reader</h3>
+                        <span id="profileRole" class="profile-role-pill">Member</span>
+                        <p id="profileJoined">Member since today</p>
+                    </div>
+                    <div id="membershipActionArea" style="margin-left: auto;">
+                        <button id="upgradePremiumBtn" class="primary-btn" onclick="openPremiumModal()">✨ Upgrade to Premium (₱99/mo)</button>
+                    </div>
+                </div>
+
+                <div class="stats-grid profile-stats">
+                    <div class="stat-card">
+                        <p>Currently Borrowed</p>
+                        <h3 id="profileBorrowed">0</h3>
+                    </div>
+
+                    <div class="stat-card">
+                        <p>Favorite Books</p>
+                        <h3 id="profileFavorites">0</h3>
+                    </div>
+
+                    <div class="stat-card">
+                        <p>Books Returned</p>
+                        <h3 id="profileReturned">0</h3>
+                    </div>
+
+                    <div class="stat-card">
+                        <p>Overdue Books</p>
+                        <h3 id="profileOverdue">0</h3>
+                    </div>
+                </div>
+
+                <div class="panel profile-details">
+                    <div class="panel-heading">
+                        <div>
+                            <h3>Account Details</h3>
+                            <p>Your library membership at a glance.</p>
+                        </div>
+                    </div>
+
+                    <div class="profile-detail-grid">
+                        <div class="profile-detail">
+                            <span>Username</span>
+                            <strong id="profileUsername">—</strong>
+                        </div>
+
+                        <div class="profile-detail">
+                            <span>Account type</span>
+                            <strong id="profileRoleDetail">Member</strong>
+                        </div>
+
+                        <div class="profile-detail">
+                            <span>Total borrowing history</span>
+                            <strong id="profileTotalBorrows">0</strong>
+                        </div>
+
+                        <div class="profile-detail">
+                            <span>Reading status</span>
+                            <strong id="profileReadingStatus">Ready to explore</strong>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="panel">
+                    <h3>📖 Recent Borrowing Activity</h3>
+                    <div id="profileActivity" class="profile-activity"></div>
+                </div>
+
+                <div class="panel">
+                    <h3>🏅 Badges</h3>
+                    <div id="profileBadges" class="badge-strip"></div>
+                </div>
+
+                <div class="panel">
+                    <h3>❤️ Favorites</h3>
+                    <div class="book-cards" id="favoritesList"></div>
+                </div>
+            </section>
+
+            <section id="rewards" class="page">
+                <div id="rewardsContent"></div>
+            </section>
+
+            <section id="settings" class="page">
+                <div class="panel">
+                    <h3>⚙️ Account Settings</h3>
+                    <p style="margin-bottom: 20px;">Manage your profile name, avatar, and email.</p>
+
+                    <form id="settingsForm" onsubmit="saveSettings(event)" style="max-width: 500px;">
+                        <label for="settingsUsername">Display Username</label>
+                        <input type="text" id="settingsUsername" required>
+
+                        <label for="settingsEmail">Email Address</label>
+                        <input type="email" id="settingsEmail" placeholder="reader@library.com">
+
+                        <button type="submit" class="primary-btn" style="margin-top: 15px; width: 100%;">Save Changes</button>
+                    </form>
+                </div>
+
+                <div class="panel">
+                    <h3>🖼️ Profile Picture / Avatar</h3>
+                    <p style="margin-bottom: 16px;">Customize how your profile avatar looks across the library.</p>
+                    <button type="button" class="secondary-btn" onclick="openAvatarModal()" style="width: auto;">Change Avatar (Emoji / Image URL)</button>
+                </div>
+
+                <div class="panel">
+                    <h3>🔒 Security</h3>
+                    <p style="margin-bottom: 16px;">Update your password to keep your account safe.</p>
+                    <form id="passwordForm" onsubmit="changePassword(event)" style="max-width: 500px;">
+                        <label for="currentPassword">Current Password</label>
+                        <input type="password" id="currentPassword" placeholder="Enter current password" required>
+
+                        <label for="newPassword">New Password (min 8 characters)</label>
+                        <input type="password" id="newPassword" placeholder="Minimum 8 characters" minlength="8" required>
+
+                        <label for="confirmNewPassword">Confirm New Password</label>
+                        <input type="password" id="confirmNewPassword" placeholder="Re-enter new password" minlength="8" required>
+
+                        <p id="passwordError" class="error-message"></p>
+                        <button type="submit" class="primary-btn" style="margin-top: 10px; width: 100%;">Update Password</button>
+                    </form>
+                </div>
+
+                <div class="panel">
+                    <h3>🛟 Password Recovery</h3>
+                    <p id="recoveryStatus" style="margin-bottom: 12px;"></p>
+                    <p>Password resets are sent to your verified email address by Supabase. Use the “Forgot password?” link on the sign-in screen.</p>
+                </div>
+
+                <div class="panel" id="authorSettingsPanel">
+                    <h3>✍️ Author Status</h3>
+                    <div id="authorSettingsBody"></div>
+                </div>
+
+                <div class="panel">
+                    <h3>🎨 Preferences</h3>
+                    <div style="margin-top: 15px; margin-bottom: 22px;">
+                        <strong>Theme</strong>
+                        <p style="margin-bottom: 12px;">Pick how the library looks. Your choice is saved on this device.</p>
+                        <div id="themePicker" class="theme-picker"></div>
+                    </div>
+
+                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px;">
+                        <div>
+                            <strong>Email Notifications</strong>
+                            <p>Receive alerts for due dates and library news.</p>
+                        </div>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="notifPrefToggle" checked onchange="saveNotifPref()">
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+
+                    <div style="display: flex; align-items: center; justify-content: space-between;">
+                        <div>
+                            <strong>Compact Book Cards</strong>
+                            <p>Use denser card layout in the inventory.</p>
+                        </div>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="compactCardsToggle" onchange="toggleCompactCards()">
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="panel">
+                    <h3>📦 Data & Privacy</h3>
+                    <p style="margin-bottom: 16px;">Manage local library data stored in your browser.</p>
+                    <div style="display: flex; flex-wrap: wrap; gap: 10px;">
+                        <button type="button" class="secondary-btn" onclick="clearCartData()" style="width: auto;">Clear Cart</button>
+                        <button type="button" class="secondary-btn" onclick="clearFavoritesData()" style="width: auto;">Clear Favorites</button>
+                        <button type="button" class="secondary-btn" onclick="exportLibraryData()" style="width: auto;">Export Data</button>
+                        <button type="button" class="danger-btn" onclick="resetAllLocalData()" style="width: auto;">Reset All Data</button>
+                    </div>
+                </div>
+
+                <div class="panel danger-zone" id="deleteAccountPanel">
+                    <h3>🗑️ Delete Account</h3>
+                    <p style="margin-bottom: 16px;">Permanently remove your account and everything tied to it: favorites, cart, ratings, friends, messages and support chats. Books you still have borrowed are returned automatically. This cannot be undone.</p>
+                    <button type="button" class="danger-btn" onclick="openDeleteAccountModal()" style="width: auto;">Delete My Account</button>
+                </div>
+            </section>
+
+            <section id="myBooks" class="page">
+                <div class="panel">
+                    <h3>📤 Upload a New Book</h3>
+                    <p style="margin-bottom: 18px;">Share your book with the library. Add a cover picture and up to 3 extra pictures.</p>
+
+                    <form id="bookUploadForm" class="upload-form">
+                        <div class="upload-grid">
+                            <div>
+                                <label for="uploadTitle">Book Title *</label>
+                                <input type="text" id="uploadTitle" maxlength="90" placeholder="e.g. The Dragon's Library" required>
+                            </div>
+                            <div>
+                                <label for="uploadCategory">Category *</label>
+                                <input type="text" id="uploadCategory" list="uploadCategoryList" maxlength="40" placeholder="Pick or type a category" required>
+                                <datalist id="uploadCategoryList"></datalist>
+                            </div>
+                            <div>
+                                <label for="uploadPrice">Price (₱) *</label>
+                                <input type="number" id="uploadPrice" min="0" step="1" value="250" required>
+                            </div>
+                            <div>
+                                <label for="uploadCopies">Copies *</label>
+                                <input type="number" id="uploadCopies" min="1" max="99" step="1" value="3" required>
+                            </div>
+                            <div>
+                                <label for="uploadYear">Year</label>
+                                <input type="number" id="uploadYear" min="1000" max="2100" step="1">
+                            </div>
+                            <div>
+                                <label for="uploadEdition">Edition</label>
+                                <input type="text" id="uploadEdition" maxlength="20" placeholder="1st">
+                            </div>
+                            <div>
+                                <label for="uploadCondition">Condition</label>
+                                <select id="uploadCondition">
+                                    <option>Excellent</option>
+                                    <option selected>Good</option>
+                                    <option>Fair</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label for="uploadShelf">Shelf (optional)</label>
+                                <input type="text" id="uploadShelf" maxlength="20" placeholder="Leave blank for auto">
+                            </div>
+                        </div>
+
+                        <label for="uploadDescription">Synopsis *</label>
+                        <textarea id="uploadDescription" rows="4" maxlength="800" placeholder="What is your book about? (at least 10 characters)" required></textarea>
+
+                        <div class="upload-pics">
+                            <div class="upload-pic-box">
+                                <label for="uploadCover">Cover Picture *</label>
+                                <input type="file" id="uploadCover" accept="image/*">
+                                <div id="coverPreview" class="pic-preview"></div>
+                            </div>
+                            <div class="upload-pic-box">
+                                <label for="uploadGallery">More Pictures (up to 3)</label>
+                                <input type="file" id="uploadGallery" accept="image/*" multiple>
+                                <div id="galleryPreview" class="pic-preview"></div>
+                            </div>
+                        </div>
+
+                        <p id="bookUploadError" class="error-message"></p>
+                        <button type="submit" class="primary-btn" style="width: 100%;">Publish Book</button>
+                    </form>
+                </div>
+
+                <div class="panel">
+                    <h3>📚 My Published Books</h3>
+                    <div id="authorBooksList" class="author-books-list"></div>
+                </div>
+            </section>
+
+            <section id="messages" class="page">
+                <div class="panel">
+                    <h3>👥 Friends &amp; Chats</h3>
+                    <p>Add people by username, then chat privately once they accept.</p>
+
+                    <div class="messages-layout">
+                        <aside class="messages-sidebar">
+                            <div class="messages-add-friend">
+                                <label for="friendUsernameInput">Add a friend</label>
+                                <div class="messages-add-row">
+                                    <input type="text" id="friendUsernameInput" placeholder="Enter username" maxlength="40" autocomplete="off">
+                                    <button type="button" id="sendFriendRequestBtn" class="primary-btn">Add</button>
+                                </div>
+                                <p id="friendRequestError" class="error-message"></p>
+                            </div>
+
+                            <div id="friendRequestsList" class="friend-requests-list"></div>
+
+                            <h4 class="messages-section-title">Friends</h4>
+                            <div id="friendsList" class="friends-list"></div>
+
+                            <h4 class="messages-section-title">Conversations</h4>
+                            <div id="dmThreadsList" class="dm-threads-list"></div>
+                        </aside>
+
+                        <div class="messages-thread">
+                            <div id="dmThreadHeader" class="support-thread-header">Select a friend to start chatting</div>
+                            <div id="dmMessages" class="chat-messages"></div>
+                            <form id="dmForm" class="chat-form hidden">
+                                <input type="text" id="dmInput" placeholder="Type a message..." autocomplete="off" maxlength="500">
+                                <button type="submit" class="primary-btn">Send</button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section id="techSupport" class="page">
+                <div class="panel">
+                    <h3>🙋 How can we help?</h3>
+                    <p>What do you need help with? Pick a topic and we'll open live chat with the right category already selected.</p>
+
+                    <div class="tech-support-grid">
+                        <button type="button" class="tech-support-card" data-support-topic="borrow"><span>🔄</span><strong>Borrow / Return</strong><small>Limits, due dates, failed returns</small></button>
+                        <button type="button" class="tech-support-card" data-support-topic="order"><span>🛒</span><strong>Cart &amp; Purchase</strong><small>Checkout and payment problems</small></button>
+                        <button type="button" class="tech-support-card" data-support-topic="premium"><span>⭐</span><strong>Premium Membership</strong><small>Upgrade, billing, cancel</small></button>
+                        <button type="button" class="tech-support-card" data-support-topic="account"><span>🔒</span><strong>Account / Password</strong><small>Login, username, banned account</small></button>
+                        <button type="button" class="tech-support-card" data-support-topic="author"><span>✍️</span><strong>Author / Publish</strong><small>Applications and book uploads</small></button>
+                        <button type="button" class="tech-support-card" data-support-topic="book"><span>📖</span><strong>Book Info / Report</strong><small>Wrong details or damaged copy</small></button>
+                        <button type="button" class="tech-support-card" data-support-topic="other"><span>🧰</span><strong>Technical Issue</strong><small>Something not working? Tell us</small></button>
+                    </div>
+                </div>
+
+                <div class="panel">
+                    <h3>❓ Quick Answers</h3>
+                    <div id="techFaqList" class="tech-faq-list"></div>
+                    <button type="button" class="primary-btn" data-support-topic="" style="margin-top: 14px;">💬 Chat with Support</button>
+                </div>
+            </section>
+
+            <section id="support" class="page admin-only hidden">
+                <div class="panel">
+                    <div class="panel-heading">
+                        <div>
+                            <h3>💬 Customer Support Inbox</h3>
+                            <p>Chat with members. While you're away, they get quick auto-help options.</p>
+                        </div>
+                        <div class="support-status">
+                            <span id="adminStatusLabel">🟢 Online</span>
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="adminOnlineToggle" checked>
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="support-layout">
+                        <div id="supportList" class="support-list"></div>
+
+                        <div class="support-thread">
+                            <div id="supportThreadHeader" class="support-thread-header">Select a conversation</div>
+                            <div id="supportMessages" class="chat-messages support-messages"></div>
+                            <div id="supportCanned" class="chat-options hidden"></div>
+                            <form id="supportForm" class="chat-form hidden">
+                                <input type="text" id="supportInput" placeholder="Type your reply..." autocomplete="off" maxlength="500">
+                                <button type="submit" class="primary-btn">Send</button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section id="admin" class="page admin-only hidden">
+                <div class="panel">
+                    <h3>Admin Dashboard</h3>
+
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <p>Accounts</p>
+                            <h3 id="adminAccounts">0</h3>
+                        </div>
+
+                        <div class="stat-card">
+                            <p>Active Loans</p>
+                            <h3 id="adminLoans">0</h3>
+                        </div>
+
+                        <div class="stat-card">
+                            <p>Overdue</p>
+                            <h3 id="adminOverdue">0</h3>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="panel">
+                    <div class="panel-heading">
+                        <div>
+                            <h3>👥 Account Management</h3>
+                            <p>Promote members to admin/librarian or ban accounts that violate library rules.</p>
+                        </div>
+                    </div>
+
+                    <div class="table-wrapper">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Username</th>
+                                    <th>Role</th>
+                                    <th>Membership</th>
+                                    <th>Status</th>
+                                    <th>Joined</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="adminUsersTable"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="panel">
+                    <div class="panel-heading">
+                        <div>
+                            <h3>✍️ Author Applications</h3>
+                            <p>Approve members who applied to publish books in the library.</p>
+                        </div>
+                    </div>
+
+                    <div class="table-wrapper">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Username</th>
+                                    <th>Pen Name</th>
+                                    <th>About</th>
+                                    <th>Applied</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="authorApplicationsTable"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <footer class="footer">
+            <p>Penetrative Library © 2026 • Click logo for Help</p>
+        </footer>
+    </div>
+
+    <div id="bookDetailPanel" class="detail-panel-wrapper hidden">
+        <div id="detailBackdrop" class="detail-backdrop" onclick="closeBookDetailPanel()"></div>
+        <div class="detail-panel-content">
+            <button class="detail-close" onclick="closeBookDetailPanel()" title="Close (Esc)">×</button>
+            <div id="detailPanelBody"></div>
+        </div>
+    </div>
+
+    <div id="avatarModal" class="help-modal hidden">
+        <div class="help-modal-overlay" onclick="closeAvatarModal()"></div>
+        <div class="help-modal-content" style="text-align: center;">
+            <button class="help-close" onclick="closeAvatarModal()">×</button>
+            <h2 style="color: var(--primary);">Customize Avatar</h2>
+            <p style="margin-bottom: 15px;">Choose an emoji, paste an image URL, or upload your own profile picture (up to 2 MB).</p>
+
+            <div style="display: flex; justify-content: center; gap: 12px; font-size: 32px; margin-bottom: 20px; flex-wrap: wrap;">
+                <span style="cursor: pointer; padding: 6px; background: var(--surface); border-radius: 12px;" onclick="setAvatarChoice('🐉')">🐉</span>
+                <span style="cursor: pointer; padding: 6px; background: var(--surface); border-radius: 12px;" onclick="setAvatarChoice('🧙‍♂️')">🧙‍♂️</span>
+                <span style="cursor: pointer; padding: 6px; background: var(--surface); border-radius: 12px;" onclick="setAvatarChoice('⭐')">⭐</span>
+                <span style="cursor: pointer; padding: 6px; background: var(--surface); border-radius: 12px;" onclick="setAvatarChoice('👑')">👑</span>
+                <span style="cursor: pointer; padding: 6px; background: var(--surface); border-radius: 12px;" onclick="setAvatarChoice('🦊')">🦊</span>
+                <span style="cursor: pointer; padding: 6px; background: var(--surface); border-radius: 12px;" onclick="setAvatarChoice('📚')">📚</span>
+            </div>
+
+            <label for="customAvatarUrl" style="text-align: left; display: block; font-size: 13px; font-weight: 600;">Or Paste Image URL / Emoji:</label>
+            <input type="text" id="customAvatarUrl" placeholder="https://example.com/avatar.jpg or 🚀" style="margin-bottom: 15px;">
+
+            <label for="customAvatarFile" style="text-align:left; display:block; margin: 10px 0 6px; font-size:13px; font-weight:600;">Upload profile picture</label>
+            <input type="file" id="customAvatarFile" accept="image/*" style="margin-bottom:12px;">
+
+            <button class="primary-btn" onclick="saveCustomAvatar()" style="width: 100%;">Save Avatar</button>
+        </div>
+    </div>
+
+    <div id="helpModal" class="help-modal hidden">
+        <div class="help-modal-overlay" id="helpOverlay"></div>
+
+        <div class="help-modal-content">
+            <button class="help-close" id="helpClose">×</button>
+
+            <div class="dragon-icon">🐉</div>
+            <h2>Help Center & FAQ</h2>
+
+            <div class="help-content">
+                <h4>How do I borrow a book?</h4>
+                <p>Go to Books → click <strong>Borrow</strong>. Max 3 books, 14 days, ₱10 borrow fee.</p>
+
+                <h4>Premium Membership?</h4>
+                <p>Get unlimited access to 75 exclusive premium books for only ₱99 per month!</p>
+
+                <h4>How do I return?</h4>
+                <p>Go to Borrow → click <strong>Return</strong>.</p>
+
+                <h4>Contact</h4>
+                <p>
+                    📞 <strong>0912 629 0432</strong><br>
+                    📧 <strong>gigachinchin@gmail.com</strong>
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <div id="deleteAccountModal" class="help-modal hidden">
+        <div class="help-modal-overlay" onclick="closeDeleteAccountModal()"></div>
+        <div class="help-modal-content">
+            <button class="help-close" onclick="closeDeleteAccountModal()">×</button>
+            <h2 style="color: #dc2626;">Delete Account</h2>
+            <p style="margin-bottom: 15px;">This permanently deletes your account and its data. Enter your password and type <strong>DELETE</strong> to confirm.</p>
+
+            <form id="deleteAccountForm" onsubmit="deleteAccount(event)">
+                <label for="deleteAccountPassword">Password</label>
+                <input type="password" id="deleteAccountPassword" placeholder="Enter your password" required autocomplete="current-password">
+
+                <label for="deleteAccountConfirmText">Type DELETE to confirm</label>
+                <input type="text" id="deleteAccountConfirmText" placeholder="DELETE" required autocomplete="off">
+
+                <p id="deleteAccountError" class="error-message"></p>
+                <button type="submit" class="danger-btn" style="width: 100%; margin-top: 10px;">Permanently Delete Account</button>
+            </form>
+        </div>
+    </div>
+
+    <div id="premiumModal" class="help-modal hidden">
+        <div class="help-modal-overlay" id="premiumOverlay" onclick="closePremiumModal()"></div>
+        <div class="help-modal-content" style="text-align: center;">
+            <button class="help-close" onclick="closePremiumModal()">×</button>
+            <div style="font-size: 50px; margin-bottom: 10px;">⭐</div>
+            <h2 style="color: #f59e0b;">Upgrade to Gold Premium</h2>
+            <p style="margin-bottom: 20px;">Unlock all 75 exclusive premium books, priority borrowing, 6 exclusive premium themes (Galaxy, Cyber Neon, Matrix Code, Aurora Lights, Golden Sunset, Royal Gold), and advanced animations for just <strong>₱99 / month</strong>!</p>
+            <button class="primary-btn" onclick="confirmUpgradePremium()" style="width: 100%; padding: 12px; font-size: 16px; background: linear-gradient(135deg, #f59e0b, #d97706);">Confirm Gold Subscription (₱99)</button>
+        </div>
+    </div>
+
+    <div id="reportModal" class="help-modal hidden">
+        <div class="help-modal-overlay" onclick="closeReportModal()"></div>
+        <div class="help-modal-content">
+            <button class="help-close" onclick="closeReportModal()">×</button>
+            <h2 style="color: #dc2626;">Report an Issue</h2>
+            <textarea id="reportReasonText" rows="4" placeholder="Type reason here..." style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); color: var(--text); margin-bottom: 15px;"></textarea>
+            <button class="primary-btn" onclick="submitReport()" style="width: 100%;">Submit Report</button>
+        </div>
+    </div>
+
+    <div id="rateModal" class="help-modal hidden">
+        <div class="help-modal-overlay" onclick="closeRateModal()"></div>
+        <div class="help-modal-content" style="text-align: center;">
+            <button class="help-close" onclick="closeRateModal()">×</button>
+            <h2>Rate This Book</h2>
+            <p id="rateBookTitle" style="margin-bottom: 15px; font-weight: 600;"></p>
+            <div id="starContainer" style="font-size: 32px; cursor: pointer; margin-bottom: 20px; color: #fbbf24;">
+                <span onclick="setRatingSelection(1)">★</span>
+                <span onclick="setRatingSelection(2)">★</span>
+                <span onclick="setRatingSelection(3)">★</span>
+                <span onclick="setRatingSelection(4)">★</span>
+                <span onclick="setRatingSelection(5)">★</span>
+            </div>
+            <button class="primary-btn" onclick="submitRating()" style="width: 100%;">Submit Rating</button>
+        </div>
+    </div>
+
+    <button id="chatFab" class="chat-fab hidden" title="Customer Service">
+        💬
+        <span id="chatFabBadge" class="chat-fab-badge hidden">0</span>
+    </button>
+
+    <div id="chatWidget" class="chat-widget hidden">
+        <div class="chat-header">
+            <div>
+                <strong>🤖 Library AI Helper</strong>
+                <span id="chatPresence" class="chat-presence"></span>
+            </div>
+            <button id="chatClose" class="chat-close" title="Close" aria-label="Close AI helper">×</button>
+        </div>
+        <div class="support-category-bar">
+            <label for="supportIssueType">What do you need help with?</label>
+            <select id="supportIssueType">
+                <option value="">Issue type (optional)</option>
+                <option value="borrow">Borrow / Return</option>
+                <option value="order">Cart &amp; Purchase</option>
+                <option value="premium">Premium Membership</option>
+                <option value="account">Account / Password</option>
+                <option value="author">Author / Publish</option>
+                <option value="book">Book Info / Report</option>
+                <option value="other">Other</option>
+            </select>
+            <input type="text" id="supportRefInput" placeholder="Book ID / ref (optional)" maxlength="40" autocomplete="off">
+        </div>
+        <div id="chatMessages" class="chat-messages"></div>
+        <div id="chatOptions" class="chat-options"></div>
+        <div id="aiTyping" class="ai-typing hidden" role="status" aria-live="polite">AI helper is thinking…</div>
+        <form id="chatForm" class="chat-form">
+            <input type="text" id="chatInput" placeholder="Ask about books or library help..." autocomplete="off" maxlength="500">
+            <button type="submit" class="primary-btn">Send</button>
+        </form>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="supabase-config.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>
