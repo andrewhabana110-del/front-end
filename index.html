@@ -911,14 +911,75 @@
         </div>
     </div>
 
-    <div id="premiumModal" class="help-modal hidden">
+    <div id="premiumModal"
+         class="help-modal hidden"
+         role="dialog"
+         aria-modal="true"
+         aria-labelledby="premiumPaymentTitle"
+         aria-describedby="premiumPaymentDescription">
         <div class="help-modal-overlay" id="premiumOverlay" onclick="closePremiumModal()"></div>
-        <div class="help-modal-content" style="text-align: center;">
-            <button class="help-close" onclick="closePremiumModal()">×</button>
-            <div style="font-size: 50px; margin-bottom: 10px;">⭐</div>
-            <h2 style="color: #f59e0b;">Upgrade to Gold Premium</h2>
-            <p style="margin-bottom: 20px;">Unlock all 75 exclusive premium books, priority borrowing, 6 exclusive premium themes (Galaxy, Cyber Neon, Matrix Code, Aurora Lights, Golden Sunset, Royal Gold), and advanced animations for just <strong>₱99 / month</strong>!</p>
-            <button class="primary-btn" onclick="confirmUpgradePremium()" style="width: 100%; padding: 12px; font-size: 16px; background: linear-gradient(135deg, #f59e0b, #d97706);">Confirm Gold Subscription (₱99)</button>
+        <div class="help-modal-content checkout-payment-content premium-payment-content">
+            <button class="help-close" type="button" aria-label="Close Premium checkout" onclick="closePremiumModal()">×</button>
+            <span class="checkout-payment-eyebrow">PREMIUM CHECKOUT · DEMO</span>
+            <h2 id="premiumPaymentTitle">Upgrade to Gold Premium</h2>
+            <p id="premiumPaymentDescription" class="checkout-payment-subtitle">
+                Unlock 75 exclusive books and Premium features for <strong>₱99 / month</strong>.
+                This is a demo only; no payment is processed.
+            </p>
+
+            <fieldset class="premium-payment-methods checkout-payment-methods">
+                <legend>Choose a demo payment method</legend>
+                <label>
+                    <input type="radio" name="premiumPaymentMethod" value="gcash" checked onchange="togglePremiumPaymentDetails()">
+                    <span class="payment-method-logo gcash-logo">G</span>
+                    <span><strong>GCash</strong><small>QR demo</small></span>
+                </label>
+                <label>
+                    <input type="radio" name="premiumPaymentMethod" value="maya" onchange="togglePremiumPaymentDetails()">
+                    <span class="payment-method-logo maya-logo">M</span>
+                    <span><strong>Maya</strong><small>Wallet demo</small></span>
+                </label>
+                <label>
+                    <input type="radio" name="premiumPaymentMethod" value="card" onchange="togglePremiumPaymentDetails()">
+                    <span class="payment-method-logo card-logo">V</span>
+                    <span><strong>Visa / Card</strong><small>Card demo</small></span>
+                </label>
+                <label>
+                    <input type="radio" name="premiumPaymentMethod" value="bank" onchange="togglePremiumPaymentDetails()">
+                    <span class="payment-method-logo bank-logo">▤</span>
+                    <span><strong>Online Banking</strong><small>Transfer demo</small></span>
+                </label>
+            </fieldset>
+
+            <div id="premiumGcashDetails" class="payment-method-details premium-payment-details">
+                <div class="demo-qr" aria-hidden="true">
+                    <span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+                    <span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+                    <span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+                    <span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+                    <span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+                    <span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+                    <span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+                </div>
+                <div>
+                    <strong>Sample GCash QR</strong>
+                    <p>This graphic is not scannable and does not request or process a payment.</p>
+                </div>
+            </div>
+            <div id="premiumMayaDetails" class="payment-method-details premium-payment-details hidden">
+                <div><strong>Maya demo</strong><p>No wallet details are needed; no payment is processed.</p></div>
+            </div>
+            <div id="premiumCardDetails" class="payment-method-details premium-payment-details hidden">
+                <div><strong>Visa / card demo</strong><p>Do not enter card information. This demo does not connect to a card processor.</p></div>
+            </div>
+            <div id="premiumBankDetails" class="payment-method-details premium-payment-details hidden">
+                <div><strong>Online banking demo</strong><p>No bank details are needed; no transfer is processed.</p></div>
+            </div>
+
+            <p id="premiumPaymentError" class="payment-inline-error" role="alert" aria-live="polite"></p>
+            <button id="premiumConfirmButton" class="primary-btn checkout-confirm-button premium-confirm-button" onclick="confirmUpgradePremium()">
+                Simulate Premium activation · ₱99
+            </button>
         </div>
     </div>
 
@@ -984,6 +1045,135 @@
             <button type="submit" class="primary-btn">Send</button>
         </form>
     </div>
+    <div id="checkoutPaymentModal"
+     class="help-modal hidden"
+     role="dialog"
+     aria-modal="true"
+     aria-labelledby="checkoutPaymentTitle"
+     aria-describedby="checkoutPaymentDescription">
+
+    <div class="help-modal-overlay"
+         onclick="closeCheckoutPayment()"></div>
+
+    <div class="help-modal-content checkout-payment-content">
+
+        <button class="help-close"
+                type="button"
+                aria-label="Close checkout"
+                onclick="closeCheckoutPayment()">×</button>
+
+        <span class="checkout-payment-eyebrow">
+            PAYMENT OPTIONS · DEMO
+        </span>
+
+        <h2 id="checkoutPaymentTitle">Choose a checkout option</h2>
+
+        <p id="checkoutPaymentDescription" class="checkout-payment-subtitle">
+            Review your order and select a demo method. No payment is processed.
+        </p>
+
+        <div id="checkoutOrderSummary"
+             class="checkout-order-summary"></div>
+
+        <fieldset class="premium-payment-methods checkout-payment-methods">
+            <legend>Payment method</legend>
+
+            <label>
+                <input type="radio"
+                       name="checkoutPaymentMethod"
+                       value="gcash"
+                       checked
+                       onchange="toggleCheckoutPaymentDetails()">
+                <span class="payment-method-logo gcash-logo">G</span>
+                <span>
+                    <strong>GCash</strong>
+                    <small>Mobile wallet</small>
+                </span>
+            </label>
+
+            <label>
+                <input type="radio"
+                       name="checkoutPaymentMethod"
+                       value="maya"
+                       onchange="toggleCheckoutPaymentDetails()">
+                <span class="payment-method-logo maya-logo">M</span>
+                <span>
+                    <strong>Maya</strong>
+                    <small>Mobile wallet</small>
+                </span>
+            </label>
+
+            <label>
+                <input type="radio"
+                       name="checkoutPaymentMethod"
+                       value="bank"
+                       onchange="toggleCheckoutPaymentDetails()">
+                <span class="payment-method-logo bank-logo">▤</span>
+                <span>
+                    <strong>Online Banking</strong>
+                    <small>Bank transfer</small>
+                </span>
+            </label>
+        </fieldset>
+
+        <div id="checkoutGcashDetails"
+             class="payment-method-details">
+            <div>
+                <strong>GCash simulation</strong>
+                <p>No mobile number or payment details are needed. This demo does not contact GCash or process a payment.</p>
+            </div>
+        </div>
+
+        <div id="checkoutMayaDetails"
+             class="payment-method-details hidden">
+
+            <div>
+                <strong>Maya simulation</strong>
+                <p>No payment details are needed. This demo does not contact Maya or process a payment.</p>
+            </div>
+        </div>
+
+        <div id="checkoutBankDetails"
+             class="payment-method-details hidden">
+
+            <div>
+                <strong>Online banking simulation</strong>
+                <p>No bank details are needed. This demo does not connect to a bank or process a payment.</p>
+            </div>
+        </div>
+
+        <p id="checkoutPaymentError"
+           class="payment-inline-error"
+           role="alert"
+           aria-live="polite"></p>
+
+        <button type="button"
+                class="primary-btn checkout-confirm-button"
+                id="checkoutConfirmButton"
+                onclick="confirmCheckoutPayment()">
+            Confirm demo payment
+        </button>
+
+    </div>
+ </div>
+<section id="yourBooks" class="page">
+
+    <div class="panel your-books-panel">
+
+        <div class="panel-heading">
+            <div>
+                <h3>📖 Your Books</h3>
+                <p>Read books you own or currently have borrowed.</p>
+            </div>
+        </div>
+
+        <div id="yourBooksGrid"
+             class="inventory-grid">
+        </div>
+
+    </div>
+
+</section>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="supabase-config.js"></script>

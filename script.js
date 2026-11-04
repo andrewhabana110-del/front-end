@@ -140,6 +140,7 @@ let books = (() => {
         return merged;
     });
 })();
+let catalogNeedsInitialization = false;
 
 let cartByUser = readJSON(STORAGE_KEYS.cart, {});
 if (Array.isArray(cartByUser)) cartByUser = { _legacy: cartByUser };
@@ -301,11 +302,41 @@ async function loadSupabaseData(authUser) {
         .select("id,data");
     if (booksError) throw booksError;
 
+    const canInitializeCatalog = ["admin", "librarian"].includes(profile.role) && !profile.banned;
+    const catalogToSeed = readJSON(STORAGE_KEYS.books, null);
+    const deletedDefaults = readJSON("libraryDeletedDefaults", []);
     if (bookRows.length) {
         books = bookRows.map(row => row.data);
-    } else if (["admin", "librarian"].includes(profile.role) && !profile.banned) {
-        const catalogToSeed = readJSON(STORAGE_KEYS.books, null);
-        const initialBooks = (Array.isArray(catalogToSeed) && catalogToSeed.length ? catalogToSeed : defaultBooks).map(book => ({
+        if (canInitializeCatalog) {
+            const existingIds = new Set(books.map(book => book.id));
+            const missingDefaults = defaultBooks.filter(
+                book => !existingIds.has(book.id) && !deletedDefaults.includes(book.id)
+            );
+            if (missingDefaults.length) {
+                const initialBooks = missingDefaults.map(book => ({
+                    id: book.id,
+                    data: { ...book, available: Number(book.copies) || 0 }
+                }));
+                const { error: seedError } = await window.librarySupabase
+                    .from("library_books")
+                    .upsert(initialBooks, { onConflict: "id" });
+                if (seedError) throw seedError;
+                books.push(...initialBooks.map(row => row.data));
+            }
+        }
+        catalogNeedsInitialization = false;
+    } else if (canInitializeCatalog) {
+        const catalog = Array.isArray(catalogToSeed) && catalogToSeed.length
+            ? catalogToSeed
+            : defaultBooks;
+        const existingIds = new Set(catalog.map(book => book.id));
+        const initialCatalog = [
+            ...catalog.filter(book => !deletedDefaults.includes(book.id)),
+            ...defaultBooks.filter(book =>
+                !existingIds.has(book.id) && !deletedDefaults.includes(book.id)
+            )
+        ];
+        const initialBooks = initialCatalog.map(book => ({
             id: book.id,
             data: { ...book, available: Number(book.copies) || 0 }
         }));
@@ -314,6 +345,10 @@ async function loadSupabaseData(authUser) {
             .upsert(initialBooks, { onConflict: "id" });
         if (seedError) throw seedError;
         books = initialBooks.map(row => row.data);
+        catalogNeedsInitialization = false;
+    } else {
+        books = [];
+        catalogNeedsInitialization = true;
     }
 
     const { data: savedState, error: stateError } = await window.librarySupabase
@@ -390,6 +425,9 @@ async function loadSupabaseData(authUser) {
                     ? item.details.items.reduce((quantity, product) => quantity + Number(product.quantity || 1), 0)
                     : 1), 0)
         };
+    }
+    if (catalogNeedsInitialization) {
+        showToast("The shared catalog is not initialized. Ask an admin or librarian to sign in once to set it up.");
     }
     return profile;
 }
@@ -643,7 +681,6 @@ function saveLibraryData() {
     persistUserScopedData();
 
     const entries = [
-        [STORAGE_KEYS.books, books],
         [STORAGE_KEYS.cart, cartByUser],
         [STORAGE_KEYS.sales, sales],
         [STORAGE_KEYS.borrows, borrows],
@@ -653,6 +690,7 @@ function saveLibraryData() {
         [STORAGE_KEYS.reports, reports],
         [STORAGE_KEYS.userRatings, userRatings]
     ];
+    if (!catalogNeedsInitialization) entries.unshift([STORAGE_KEYS.books, books]);
 
     let failed = false;
 
@@ -1960,10 +1998,10 @@ function adjustCopies(id, amount) {
 function getBorrowState(book) {
     const mine = getUserBorrows();
     if (mine.some(b => b.id === book.id)) return { disabled: false, label: "Borrow", reason: "" };
-    if (book.isPremium && !isUserPremium(currentUser)) return { disabled: true, label: "⭐ Premium", reason: "Premium members only" };
-    if ((Number(book.available) || 0) <= 0) return { disabled: true, label: "Unavailable", reason: "No copies available" };
-    if (mine.some(b => isOverdue(b.dueDate))) return { disabled: true, label: "Overdue", reason: "Return your overdue books first" };
-    if (mine.length >= MAX_BORROWS) return { disabled: true, label: "Limit reached", reason: `You already have ${MAX_BORROWS} books` };
+    if (book.isPremium && !isUserPremium(currentUser)) return { disabled: false, label: "⭐ Premium", reason: "Premium membership is required; the server will check your current membership." };
+    if ((Number(book.available) || 0) <= 0) return { disabled: false, label: "Borrow", reason: "The catalog shows no available copies; the server will check the latest availability." };
+    if (mine.some(b => isOverdue(b.dueDate))) return { disabled: false, label: "Borrow", reason: "You may have an overdue loan; the server will check your current loans." };
+    if (mine.length >= MAX_BORROWS) return { disabled: false, label: "Borrow", reason: "You may have reached the loan limit; the server will check your current loans." };
     return { disabled: false, label: "Borrow", reason: "" };
 }
 
@@ -1971,77 +2009,56 @@ async function borrowBook(id) {
     const book = books.find(item => item.id === id);
     if (!book) return;
 
-    if (book.isPremium && !isUserPremium(currentUser)) {
-        alert("This is a Premium Book. Please upgrade to Premium membership (₱99/mo) in your profile to borrow it!");
-        showPage("profile");
-        return;
-    }
-
-    if ((book.available || 0) <= 0) {
-        alert("Unavailable");
-        return;
-    }
-
-    const activeBorrows = getUserBorrows();
-
-    if (activeBorrows.length >= MAX_BORROWS) {
-        alert(`Max ${MAX_BORROWS} books allowed`);
-        return;
-    }
-
-    if (activeBorrows.some(borrow => isOverdue(borrow.dueDate))) {
-        alert("You have an overdue book. Please return it before borrowing another.");
-        return;
-    }
-
-    if (activeBorrows.some(borrow => borrow.id === id)) {
-        alert("Already borrowed");
-        return;
-    }
-
-    const borrowedOn = today();
-    const dueDate = addDays(borrowedOn, LOAN_DAYS);
-    const borrowFee = BORROW_FEE;
-
-    const loan = {
-        id,
-        title: book.title,
-        username: currentUser,
-        borrowedOn,
-        dueDate,
-        borrowFee,
-        isPremium: !!book.isPremium,
-        returned: false,
-        returnedOn: null
-    };
-
     try {
         const { data: result, error } = await window.librarySupabase
             .rpc("borrow_library_book", { p_book_id: id });
         if (error) throw error;
+        if (!result?.book || !result?.loan) {
+            await loadSupabaseData(currentAuthUser);
+            renderAll();
+            throw new Error("The borrowing service returned an invalid response. Please try again.");
+        }
         Object.assign(book, result.book);
-        Object.assign(loan, result.loan);
+        const loan = result.loan;
+        const borrowFee = Number(loan.borrowFee) || BORROW_FEE;
+        const dueDate = loan.dueDate;
+        if (!dueDate) {
+            await loadSupabaseData(currentAuthUser);
+            renderAll();
+            throw new Error("The borrowing service did not return a due date. Please refresh and try again.");
+        }
+
+        borrows.push(loan);
+
+        sales.today += borrowFee;
+        sales.month += borrowFee;
+
+        addNotification(
+            "Book Borrowed",
+            `You borrowed "${book.title}". Fee: ${formatCurrency(borrowFee)}. Due date: ${dueDate}`
+        );
+
+        saveLibraryData();
+        renderAll();
+
+        alert(`"${book.title}" borrowed!\nBorrow Fee: ${formatCurrency(borrowFee)}\nDue: ${dueDate}`);
+
+        showPage("borrow");
     } catch (error) {
-        showSupabaseError(error, "Unable to borrow this book");
-        return;
+        if (error.code === "PGRST202" || /could not find the function|schema cache/i.test(error.message || "")) {
+            showSupabaseError(
+                new Error("The borrow function is not installed in Supabase. Run the latest supabase-schema.sql in the Supabase SQL Editor."),
+                "Unable to borrow this book"
+            );
+        } else if (error.code === "P0001" && /book not found/i.test(error.message || "")) {
+            showSupabaseError(
+                new Error("This book is not in the shared Supabase catalog. Sign in once with an admin or librarian account to initialize the catalog, then try again."),
+                "Unable to borrow this book"
+            );
+        } else {
+            showSupabaseError(error, "Unable to borrow this book");
+        }
     }
-
-    borrows.push(loan);
-
-    sales.today += borrowFee;
-    sales.month += borrowFee;
-
-    addNotification(
-        "Book Borrowed",
-        `You borrowed "${book.title}". Fee: ${formatCurrency(BORROW_FEE)}. Due date: ${dueDate}`
-    );
-
-    saveLibraryData();
-    renderAll();
-
-    alert(`"${book.title}" borrowed!\nBorrow Fee: ${formatCurrency(BORROW_FEE)}\nDue: ${dueDate}`);
-
-    showPage("borrow");
 }
 
 async function returnBook(id) {
@@ -2122,7 +2139,7 @@ function viewBook(id) {
     } else {
         const bs = getBorrowState(book);
         borrowReturnBtn = `<button class="primary-btn" onclick="borrowBook('${escapeHTML(book.id)}'); closeBookDetailPanel();" ${bs.disabled ? "disabled" : ""} title="${escapeHTML(bs.reason)}">${bs.label}</button>`;
-        if (bs.disabled && bs.reason) borrowReturnBtn += `<p class="hint-text">${escapeHTML(bs.reason)}</p>`;
+        if (bs.reason) borrowReturnBtn += `<p class="hint-text">${escapeHTML(bs.reason)}</p>`;
     }
 
     const detailPics = [book.image, ...(Array.isArray(book.gallery) ? book.gallery : [])].filter(hasRealPicture);
@@ -2325,54 +2342,24 @@ function deleteBooks() {
     deleteBook(book.id);
 }
 
-async function checkoutCart() {
-    if (!cart.length) {
-        alert("Cart empty");
-        return;
-    }
-
-    const total = cart.reduce(
-        (sum, item) => sum + item.price * item.quantity,
-        0
+function canUserRateBook(bookId) {
+    const hasBorrowed = borrows.some(
+        borrow => sameUser(borrow.username, currentUser) && borrow.id === bookId
     );
+    if (hasBorrowed) return true;
 
-    if (!confirm(`Checkout ${formatCurrency(total)}?`)) return;
-
-    const purchase = {
-        id: crypto.randomUUID(),
-        purchasedAt: new Date().toISOString(),
-        total,
-        items: cart.map(item => ({ ...item }))
-    };
-    try {
-        await recordLibraryTransaction("purchase", {
-            amount: total,
-            items: purchase.items
-        });
-    } catch (error) {
-        showSupabaseError(error, "Unable to save purchase");
-        return;
-    }
-
-    sales.today += total;
-    sales.month += total;
-    sales.count += cart.reduce((sum, item) => sum + (item.quantity || 1), 0);
-
-    purchaseHistory.push(purchase);
-    cart = [];
-
-    addNotification(
-        "Checkout Complete",
-        `Purchased items totaling ${formatCurrency(total)}.`
+    return purchaseHistory.some(order =>
+        sameUser(order.username, currentUser) &&
+        (order.id === bookId || order.items?.some(item => item.id === bookId))
     );
-
-    saveLibraryData();
-    renderAll();
-
-    alert(`Done! Total: ${formatCurrency(total)}`);
 }
 
 function openRateModal(bookId) {
+    if (!canUserRateBook(bookId)) {
+        alert("You can't rate this book because you have not borrowed or purchased it.");
+        return;
+    }
+
     const ratingKey = String(currentUser).toLowerCase();
     const userList = [...(userRatings[ratingKey] || []), ...(userRatings[currentUser] || [])];
     if (userList.includes(bookId)) {
@@ -2413,6 +2400,11 @@ function highlightStars(count) {
 
 function submitRating() {
     if (!currentRatingBookId) return;
+    if (!canUserRateBook(currentRatingBookId)) {
+        alert("You can't rate this book because you have not borrowed or purchased it.");
+        closeRateModal();
+        return;
+    }
 
     const ratingKey = String(currentUser).toLowerCase();
     if (!userRatings[ratingKey]) {
@@ -2472,46 +2464,93 @@ function submitReport() {
 }
 
 function openPremiumModal() {
-    document.getElementById("premiumModal")?.classList.remove("hidden");
-    document.getElementById("premiumModal")?.classList.add("show");
+    const modal = document.getElementById("premiumModal");
+    if (!modal) return;
+
+    clearTimeout(modal._closeTimer);
+    const gcashOption = modal.querySelector('input[name="premiumPaymentMethod"][value="gcash"]');
+    if (gcashOption) gcashOption.checked = true;
+    const error = document.getElementById("premiumPaymentError");
+    if (error) error.textContent = "";
+    modal.classList.remove("hidden");
+    togglePremiumPaymentDetails();
+    requestAnimationFrame(() => {
+        modal.classList.add("show");
+        modal.querySelector(".help-close")?.focus();
+    });
 }
 
 function closePremiumModal() {
-    document.getElementById("premiumModal")?.classList.remove("show");
-    setTimeout(() => {
-        document.getElementById("premiumModal")?.classList.add("hidden");
+    const modal = document.getElementById("premiumModal");
+    if (!modal || modal.classList.contains("hidden")) return;
+
+    modal.classList.remove("show");
+    clearTimeout(modal._closeTimer);
+    modal._closeTimer = setTimeout(() => {
+        if (!modal.classList.contains("show")) {
+            modal.classList.add("hidden");
+            document.getElementById("upgradePremiumBtn")?.focus();
+        }
     }, 350);
 }
 
+function togglePremiumPaymentDetails() {
+    const method = document.querySelector(
+        'input[name="premiumPaymentMethod"]:checked'
+    )?.value || "gcash";
+
+    ["gcash", "maya", "card", "bank"].forEach(name => {
+        document.getElementById(
+            `premium${name[0].toUpperCase()}${name.slice(1)}Details`
+        )?.classList.toggle("hidden", method !== name);
+    });
+
+    const error = document.getElementById("premiumPaymentError");
+    if (error) error.textContent = "";
+}
+
 async function confirmUpgradePremium() {
-    if (!confirm(`Pay ${formatCurrency(PREMIUM_PRICE)} for ${PREMIUM_DAYS} days of Premium?\n(Demo only, no real payment.)`)) return;
-    let premiumUntil;
-    try {
-        const { data, error } = await window.librarySupabase.rpc("activate_demo_premium");
-        if (error) throw error;
-        premiumUntil = data;
-    } catch (error) {
-        showSupabaseError(error, "Unable to activate Premium");
+    const button = document.getElementById("premiumConfirmButton");
+    const errorMessage = document.getElementById("premiumPaymentError");
+    const method = document.querySelector(
+        'input[name="premiumPaymentMethod"]:checked'
+    )?.value || "gcash";
+
+    if (!["gcash", "maya", "card", "bank"].includes(method)) {
+        if (errorMessage) errorMessage.textContent = "Choose a valid demo payment method.";
         return;
     }
 
-    const accounts = getSavedAccounts();
-    const account = accounts.find(item => item.username?.toLowerCase() === String(currentUser).toLowerCase());
+    if (button) button.disabled = true;
+    if (errorMessage) errorMessage.textContent = "";
+    try {
+        const { data, error } = await window.librarySupabase.rpc("activate_demo_premium");
+        if (error) throw error;
+        const premiumUntil = data;
 
-    if (account) {
-        account.membership = "premium";
-        account.premiumUntil = premiumUntil;
-        saveAccounts(accounts);
+        const accounts = getSavedAccounts();
+        const account = accounts.find(item => item.username?.toLowerCase() === String(currentUser).toLowerCase());
+
+        if (account) {
+            account.membership = "premium";
+            account.premiumUntil = premiumUntil;
+            saveAccounts(accounts);
+        }
+
+        sales.today += PREMIUM_PRICE;
+        sales.month += PREMIUM_PRICE;
+        saveLibraryData();
+
+        addNotification("⭐ Premium Membership Activated!", "Welcome to VIP Premium! You now have unlimited access to all 75 exclusive premium books.");
+        closePremiumModal();
+        renderAll();
+        alert(`Demo Premium activated via ${method === "card" ? "Visa / card" : method === "bank" ? "online banking" : method} until ${premiumUntil}. No payment was processed.`);
+    } catch (error) {
+        if (errorMessage) errorMessage.textContent = error.message || "Unable to activate Premium.";
+        showSupabaseError(error, "Unable to activate Premium");
+    } finally {
+        if (button) button.disabled = false;
     }
-
-    sales.today += PREMIUM_PRICE;
-    sales.month += PREMIUM_PRICE;
-    saveLibraryData();
-
-    addNotification("⭐ Premium Membership Activated!", "Welcome to VIP Premium! You now have unlimited access to all 75 exclusive premium books.");
-    alert(`You are now Premium until ${addDays(today(), PREMIUM_DAYS)}. Enjoy your VIP perks!`);
-    closePremiumModal();
-    renderAll();
 }
 
 async function cancelSubscription() {
@@ -5261,6 +5300,7 @@ document.addEventListener("keydown", event => {
         closeRateModal();
         closeReportModal();
         closePremiumModal();
+        closeCheckoutPayment();
         closeDeleteAccountModal();
         closeBookDetailPanel();
         closeNotifDropdown();
@@ -5383,3 +5423,480 @@ async function restoreSupabaseSession() {
 }
 
 restoreSupabaseSession();
+
+function checkoutCart() {
+    if (!cart.length) {
+        alert("Cart empty");
+        return;
+    }
+
+    openCheckoutPayment();
+}
+
+function openCheckoutPayment() {
+    if (!cart.length) return;
+
+    const total = cart.reduce(
+        (sum, item) =>
+            sum + (Number(item.price) || 0) *
+            (Number(item.quantity) || 1),
+        0
+    );
+
+    const summary = document.getElementById(
+        "checkoutOrderSummary"
+    );
+
+    if (summary) {
+        summary.innerHTML = `
+            ${cart.map(item => `
+                <div class="checkout-order-line">
+                    <span>${escapeHTML(item.title)} × ${Number(item.quantity) || 1}</span>
+                    <span>${formatCurrency(
+                        (Number(item.price) || 0) *
+                        (Number(item.quantity) || 1)
+                    )}</span>
+                </div>
+            `).join("")}
+
+            <div class="checkout-order-line checkout-order-total">
+                <span>Total</span>
+                <span>${formatCurrency(total)}</span>
+            </div>
+        `;
+    }
+
+    const modal = document.getElementById(
+        "checkoutPaymentModal"
+    );
+    if (!modal) {
+        showToast("Checkout is unavailable. Please reload the page and try again.");
+        return;
+    }
+
+    clearTimeout(modal._closeTimer);
+    modal.classList.remove("hidden");
+    toggleCheckoutPaymentDetails();
+    requestAnimationFrame(() => {
+        modal.classList.add("show");
+        modal.querySelector(".help-close")?.focus();
+    });
+}
+
+function closeCheckoutPayment() {
+    const modal = document.getElementById(
+        "checkoutPaymentModal"
+    );
+    if (!modal) return;
+    if (modal.classList.contains("hidden")) return;
+
+    modal.classList.remove("show");
+
+    clearTimeout(modal._closeTimer);
+    modal._closeTimer = setTimeout(() => {
+        if (!modal.classList.contains("show")) {
+            modal.classList.add("hidden");
+            document.getElementById("checkoutButton")?.focus();
+        }
+    }, 250);
+}
+
+function toggleCheckoutPaymentDetails() {
+    const method = document.querySelector(
+        'input[name="checkoutPaymentMethod"]:checked'
+    )?.value || "gcash";
+
+    ["gcash", "maya", "bank"].forEach(name => {
+        document.getElementById(
+            `checkout${name[0].toUpperCase()}${name.slice(1)}Details`
+        )?.classList.toggle("hidden", method !== name);
+    });
+
+    const error = document.getElementById(
+        "checkoutPaymentError"
+    );
+
+    if (error) error.textContent = "";
+}
+
+function recordAuditEvent(action, description) {
+    const entry = {
+        id: Date.now(),
+        action,
+        description,
+        username: currentUser || "system",
+        createdAt: new Date().toISOString()
+    };
+
+    reports.unshift(entry);
+    saveLibraryData();
+}
+
+function confirmCheckoutPayment() {
+    if (!cart.length || !currentUser) return;
+
+    const method = document.querySelector(
+        'input[name="checkoutPaymentMethod"]:checked'
+    )?.value || "gcash";
+    if (!["gcash", "maya", "bank"].includes(method)) {
+        const error = document.getElementById("checkoutPaymentError");
+        if (error) error.textContent = "Choose a valid payment method.";
+        return;
+    }
+
+    const total = cart.reduce(
+        (sum, item) =>
+            sum + (Number(item.price) || 0) *
+            (Number(item.quantity) || 1),
+        0
+    );
+
+    cart.forEach(item => {
+        purchaseHistory.push({
+            id: item.id,
+            title: item.title,
+            username: currentUser,
+            purchasedOn: today(),
+            quantity: Number(item.quantity) || 1,
+            amount: (Number(item.price) || 0) *
+                    (Number(item.quantity) || 1),
+            paymentMethod: method
+        });
+    });
+
+    sales.today += total;
+    sales.month += total;
+    sales.count += cart.reduce(
+        (sum, item) => sum + (item.quantity || 1),
+        0
+    );
+
+    recordAuditEvent(
+        "Purchase transaction",
+        `${cart.length} title(s), ${formatCurrency(total)} via ${method.toUpperCase()} (demo).`
+    );
+
+    cart = [];
+
+    addNotification(
+        "Checkout Complete",
+        `Purchased items totaling ${formatCurrency(total)}.`
+    );
+
+    saveLibraryData();
+    renderAll();
+    closeCheckoutPayment();
+
+    alert(
+        `Demo checkout complete via ${method.toUpperCase()}! Total: ${formatCurrency(total)}. No payment was processed.`
+    );
+}
+function renderYourBooksPage() {
+
+    const grid = document.getElementById("yourBooksGrid");
+
+    if (!grid) return;
+
+    const byId = new Map();
+
+    getUserBorrows().forEach(loan =>
+        byId.set(loan.id, {
+            id: loan.id,
+            borrowed: true,
+            purchased: false
+        })
+    );
+
+    purchaseHistory
+        .filter(order => sameUser(order.username, currentUser))
+        .forEach(order => {
+
+            const entry = byId.get(order.id) || {
+                id: order.id,
+                borrowed: false,
+                purchased: false
+            };
+
+            entry.purchased = true;
+            byId.set(order.id, entry);
+        });
+
+    const entries = [...byId.values()]
+        .map(entry => ({
+            ...entry,
+            book: books.find(book => book.id === entry.id)
+        }))
+        .filter(entry => entry.book);
+
+    grid.innerHTML = entries.length
+        ? entries.map(({ book, borrowed, purchased }) => `
+            <article class="owned-book-card">
+
+                <div class="owned-book-cover">
+                    ${
+                        hasRealPicture(book.image)
+                        ? `<img src="${escapeHTML(book.image)}"
+                               alt="${escapeHTML(book.title)} cover">`
+                        : '<span>📖</span>'
+                    }
+                </div>
+
+                <div class="owned-book-info">
+
+                    <span class="owned-book-status">
+                        ${
+                            borrowed && purchased
+                            ? "Owned · On loan"
+                            : borrowed
+                            ? "Currently borrowed"
+                            : "Purchased"
+                        }
+                    </span>
+
+                    <h3>${escapeHTML(book.title)}</h3>
+
+                    <p>
+                        By ${escapeHTML(book.author || "Unknown author")}
+                    </p>
+
+                    <button type="button"
+                            class="primary-btn"
+                            onclick="openReader('${escapeHTML(book.id)}')">
+                        Read book
+                    </button>
+
+                </div>
+            </article>
+        `).join("")
+        : `
+            <div class="owned-books-empty">
+                <span>📚</span>
+                <h3>Your shelf is waiting</h3>
+                <p>Books you borrow or buy will show up here for easy reading.</p>
+                <button class="primary-btn"
+                        onclick="showPage('books')">
+                    Browse books
+                </button>
+            </div>
+        `;
+}
+
+function getReadableBookPages(book) {
+
+    const supplied = Array.isArray(book.pages)
+        ? book.pages
+            .map(page =>
+                typeof page === "string"
+                ? page
+                : page?.content
+            )
+            .filter(page =>
+                typeof page === "string" && page.trim()
+            )
+        : [];
+
+    if (supplied.length) {
+        return {
+            pages: supplied,
+            demo: false
+        };
+    }
+
+    const title = book.title || "Untitled Book";
+    const author = book.author || "Unknown author";
+    const category = book.category || "General";
+
+    const description = book.description ||
+        `An introduction to ${title} and its place in the ${category} collection.`;
+
+    const subject = title.replace(/\s+Vol\.\s*\d+$/i, "");
+
+    const guidance = {
+        lens: `the ideas and practical questions surrounding ${subject}`,
+        idea: `${description} A helpful way to begin is to separate what is known, what is assumed, and what still needs a clearer explanation.`,
+        method: "Start with a question, gather dependable evidence, compare more than one explanation, and record how each conclusion follows from what you observed.",
+        scenario: `Consider a real situation connected to ${subject}. The details may be incomplete, so identify what additional evidence would help you make a fair and useful decision.`,
+        exercise: `Write one question about ${subject}. Note what you already know, what you would need to learn, and where you could look for a reliable answer.`
+    };
+
+    const pages = [
+
+        // PAGE 1
+        `A first look at ${subject}
+By ${author}
+
+${description}
+
+Every subject becomes easier to explore when it is connected to a question that matters.
+
+This preview approaches ${subject} through ${guidance.lens}.
+
+As you read, notice which parts are facts, which are choices, and which depend on the situation.`,
+
+        // PAGE 2
+        `The central idea
+
+${guidance.idea}
+
+For ${subject}, the useful habit is to slow down long enough to explain how one step leads to the next.
+
+When an explanation feels vague, ask for a concrete example and check whether the same reasoning still works.
+
+Keep the book's description in view: ${description}`,
+
+        // PAGE 3
+        `A method you can use
+
+${guidance.method}
+
+Apply the method to one small case before trying a complicated one.
+
+Write down what you expected, what happened, and what you learned.
+
+A short record makes it easier to spot a mistaken assumption and to repeat a successful approach.`,
+
+        // PAGE 4
+        `From idea to practice
+
+${guidance.scenario}
+
+The details of a real example matter.
+
+Ask who is affected, what constraints exist, and what evidence would change your mind.
+
+Then compare possible responses by their benefits, risks, and cost.`,
+
+        // PAGE 5
+        `Review and next steps
+
+Return to the description: ${description}
+
+What question does ${subject} help answer?
+
+Which part of the method would you try first, and what would count as a good result?
+
+Try this: ${guidance.exercise}
+
+End of the custom sample preview for ${title}.`
+    ];
+
+    return {
+        demo: true,
+        pages
+    };
+}
+
+function loadReaderVoices() {
+
+    if (!window.speechSynthesis) return;
+
+    const select = document.getElementById("readerVoice");
+
+    const voices = speechSynthesis.getVoices();
+
+    const selected = select.value;
+
+    if (voices.length) {
+
+        select.replaceChildren(
+            new Option("Default", "")
+        );
+
+        voices.forEach(voice => {
+            select.add(
+                new Option(
+                    `${voice.name} · ${voice.lang}`,
+                    voice.voiceURI
+                )
+            );
+        });
+
+        if ([...select.options].some(
+            option => option.value === selected
+        )) {
+            select.value = selected;
+        }
+    }
+}
+
+function toggleReaderNarration() {
+
+    if (!window.speechSynthesis ||
+        !window.SpeechSynthesisUtterance) {
+        return;
+    }
+
+    const speech = window.speechSynthesis;
+
+    const button = document.querySelector(
+        '[data-reader="listen"]'
+    );
+
+    if (speech.speaking && !speech.paused) {
+        speech.pause();
+        button.textContent = "▶ Resume";
+        return;
+    }
+
+    if (speech.paused) {
+        speech.resume();
+        button.textContent = "⏸ Pause";
+        return;
+    }
+
+    const text = document.getElementById(
+        "readerPage"
+    )?.innerText.trim();
+
+    if (!text) return;
+
+    speech.cancel();
+
+    const utterance = new SpeechSynthesisUtterance(text);
+
+    const voiceURI = document.getElementById(
+        "readerVoice"
+    )?.value;
+
+    const voice = speech.getVoices().find(
+        item => item.voiceURI === voiceURI
+    );
+
+    if (voice) {
+        utterance.voice = voice;
+        utterance.lang = voice.lang;
+    }
+
+    utterance.rate = Number(
+        document.getElementById("readerRate")?.value
+    ) || 1;
+
+    utterance.onstart = () => {
+        button.textContent = "⏸ Pause";
+    };
+
+    utterance.onend = () => {
+        button.textContent = "🔊 Listen";
+    };
+
+    utterance.onerror = () => {
+        button.textContent = "🔊 Listen";
+    };
+
+    speech.speak(utterance);
+}
+
+function stopReaderNarration() {
+
+    if (window.speechSynthesis) {
+        speechSynthesis.cancel();
+    }
+
+    const button = document.querySelector(
+        '[data-reader="listen"]'
+    );
+
+    if (button) {
+        button.textContent = "🔊 Listen";
+    }
+}
